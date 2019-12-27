@@ -1,4 +1,5 @@
 const express = require('express');
+const bcrypt = require('bcryptjs');
 
 const User = require('../models/user');
 
@@ -15,9 +16,26 @@ router.post('/register', async (req, res) => {
 
     user.password = undefined;
 
-    return res.send(user);
+    return response.send(user);
   } catch {
-    return res.status(400).send({ error: 'Resgistrarion failed' });
+    return response.status(400).send({ error: 'responsegistrarion failed' });
+  }
+});
+
+router.post('/authenticate', async (request, response) => {
+  try {
+    const { email, password } = request.body;
+
+    const user = await User.findOne({ email }).select('+password');
+
+    if (!user) return response.status(400).send({ error: 'User not find.' });
+
+    if (!(await bcrypt.compare(password, user.password)))
+      return response.status(401).send({ error: 'Mismatched credentials.' });
+
+    return response.send(user);
+  } catch {
+    return response.status(400).send({ error: 'Authentications failed' });
   }
 });
 

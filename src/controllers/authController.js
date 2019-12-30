@@ -1,41 +1,51 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const authConfig = require('../config/auth.json');
 
 const User = require('../models/user');
 
 const router = express.Router();
 
-router.post('/register', async (request, response) => {
+router.post('/register', async (req, res) => {
   try {
-    const { email } = request.body;
+    const { email } = req.body;
 
     if (await User.findOne({ email }))
-      return response.status(400).send({ error: 'User already exists.' });
+      return res.status(400).send({ error: 'User already exists.' });
 
-    const user = await User.create(request.body);
+    const user = await User.create(req.body);
 
     user.password = undefined;
 
-    return response.send(user);
+    return res.send({ user, token: generateToken({ id: user.id }) });
   } catch {
-    return response.status(400).send({ error: 'responsegistrarion failed' });
+    return res.status(400).send({ error: 'Registrarion failed' });
   }
 });
 
-router.post('/authenticate', async (request, response) => {
+function generateToken(params = {}) {
+  return jwt.sign(params, authConfig.secret, {
+    expiresIn: 86400,
+  });
+}
+
+router.post('/authenticate', async (req, res) => {
   try {
-    const { email, password } = request.body;
+    const { email, password } = req.body;
 
     const user = await User.findOne({ email }).select('+password');
 
-    if (!user) return response.status(400).send({ error: 'User not find.' });
+    if (!user) return res.status(400).send({ error: 'User not find.' });
 
     if (!(await bcrypt.compare(password, user.password)))
-      return response.status(401).send({ error: 'Mismatched credentials.' });
+      return res.status(401).send({ error: 'Mismatched credentials.' });
 
-    return response.send(user);
+    user.password = undefined;
+
+    return res.send({ user, token: generateToken({ id: user.id }) });
   } catch {
-    return response.status(400).send({ error: 'Authentications failed' });
+    return res.status(400).send({ error: 'Authentication failed' });
   }
 });
 
